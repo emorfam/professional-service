@@ -33,3 +33,15 @@ variable "juicefs_filesystem_name" {
   description = "Name of the JuiceFS filesystem. Used when formatting the filesystem on first use."
   default     = "stackit-juicefs"
 }
+
+variable "valkey_plan_name" {
+  type        = string
+  description = "STACKIT Key Value Store plan name. Run `stackit beta valkey plans list` or check the STACKIT portal for available plan names."
+  default     = "stackit-keyvalue-1.4.10-replica"
+}
+
+variable "valkey_version" {
+  type        = string
+  description = "Key Value Store major version to deploy."
+  default     = "8"
+}

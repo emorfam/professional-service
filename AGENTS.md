@@ -150,7 +150,7 @@ Fetch only the files relevant to the task. A typical example contains
   This guide explains how to configure the STACKIT Observability product to send alerts using metrics gathered from kube-state-metrics
 - **`ske-observability-log-alerts`** `[ske, observability, logging, alerting, promtail, kubernetes]`  
   This guide walks you through setting up log-based alerting in STACKIT Observability using Promtail to ship Kubernetes logs
-- **`ske-s3-csi-juicefs`** `[ske, juicefs, csi-driver, s3, object-storage, rwx, read-write-many, redis, kubernetes]`  
+- **`ske-s3-csi-juicefs`** `[ske, juicefs, csi-driver, s3, object-storage, rwx, read-write-many, key-value-store, valkey, kubernetes]`  
   Mounts STACKIT Object Storage as a `ReadWriteMany` Kubernetes volume on SKE using the [JuiceFS CSI driver](https://github.com/juicedata/juicefs-csi-driver)
 - **`ske-stackit-sfs-integration`** `[ske, nfs, sfs, storage, kubernetes, rwx, file-storage]`  
   Terraform Example of deploying a STACKIT File Storage NFS Service

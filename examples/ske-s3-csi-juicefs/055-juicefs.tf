@@ -12,7 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Secret consumed by the JuiceFS CSI driver to connect to Redis and S3.
+locals {
+  # STACKIT Key Value Store credentials use the "valkeys://" scheme (TLS).
+  # JuiceFS only recognises "redis://" and "rediss://".
+  # Replace the scheme so JuiceFS connects via TLS.
+  metaurl = replace(stackit_valkey_credential.juicefs.uri, "valkeys://", "rediss://")
+
+  # SKE (Gardener) enforces default-deny in kube-system.
+  # Pods must carry these labels to open egress to the API server, DNS, and public networks (S3, Key Value Store).
+  gardener_network_labels = {
+    "networking.gardener.cloud/to-apiserver"       = "allowed"
+    "networking.gardener.cloud/to-dns"             = "allowed"
+    "networking.gardener.cloud/to-public-networks" = "allowed"
+  }
+}
+
+# Secret consumed by the JuiceFS CSI driver to connect to the Key Value Store and S3.
 resource "kubernetes_secret_v1" "juicefs" {
   metadata {
     name      = "juicefs-secret"
@@ -21,7 +36,7 @@ resource "kubernetes_secret_v1" "juicefs" {
 
   data = {
     name       = var.juicefs_filesystem_name
-    metaurl    = "redis://redis-master.redis.svc.cluster.local:6379/0"
+    metaurl    = local.metaurl
     storage    = "s3"
     bucket     = "https://object.storage.${var.stackit_region}.onstackit.cloud/${stackit_objectstorage_bucket.juicefs.name}"
     access-key = stackit_objectstorage_credential.juicefs.access_key
@@ -30,19 +45,9 @@ resource "kubernetes_secret_v1" "juicefs" {
 
   depends_on = [
     stackit_ske_cluster.this,
-    kubernetes_service_v1.redis,
+    stackit_valkey_credential.juicefs,
     stackit_objectstorage_credential.juicefs,
   ]
-}
-
-# Gardener (SKE) enforces default-deny in kube-system; pods need these labels
-# to open egress to the API server, DNS, and public networks (S3).
-locals {
-  gardener_network_labels = {
-    "networking.gardener.cloud/to-apiserver"       = "allowed"
-    "networking.gardener.cloud/to-dns"             = "allowed"
-    "networking.gardener.cloud/to-public-networks" = "allowed"
-  }
 }
 
 resource "helm_release" "juicefs_csi" {
@@ -62,15 +67,15 @@ resource "helm_release" "juicefs_csi" {
       node       = { labels = local.gardener_network_labels }
       dashboard  = { labels = local.gardener_network_labels }
 
-      # Mount pods are spawned dynamically in kube-system and don't inherit
-      # the labels above. Patch them explicitly so DNS and S3 egress work.
+      # Mount pods are spawned dynamically in kube-system and do not inherit the labels above.
+      # Patch them explicitly so DNS and S3/Key Value Store egress work.
       globalConfig = {
         mountPodPatch = [
           { labels = local.gardener_network_labels }
         ]
       }
 
-      # Disabled: StorageClass is created below with explicit secret references.
+      # StorageClass is created below with explicit secret references.
       storageClasses = [{ enabled = false }]
     })
   ]
