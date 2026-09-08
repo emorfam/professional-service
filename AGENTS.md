@@ -183,6 +183,8 @@ Fetch only the files relevant to the task. A typical example contains
   Delete all STACKIT volumes whose status is AVAILABLE (i.e. not attached)
 - **`list-project-resources.sh`** `[dns, ske, dbaas, object-storage, inventory, multi-project]`  
   Render a Markdown inventory of resources (DNS, SKE, databases, storage, …) for one or more STACKIT projects
+- **`project-resource-graph.sh`** `[inventory, references, delete, iaas, ske, dbaas, multi-project]`  
+  List the resources of a project, show which of them reference each other, and delete selected objects ordered by the references it found
 - **`s3-ssec.sh`** `[object-storage, s3, encryption, ssec]`  
   Upload and Download Files to a STACKIT S3 Bucket (Object Storage) and enable Server Side Encryption with Custom Keys
 - **`ske-show-versions.sh`** `[ske, kubernetes, versions]`  

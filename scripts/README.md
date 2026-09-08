@@ -6,17 +6,18 @@ Helper scripts for working with STACKIT services.
 
 ## Overview
 
-| Script                                                                             | Purpose                                                                                                               | Required tools                     | Tags                                                        |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------- |
-| [`s3-ssec.sh`](#s3-ssec)                                                           | Upload and Download Files to a STACKIT S3 Bucket (Object Storage) and enable Server Side Encryption with Custom Keys. | `awscli`, `python3-awscrt`         | `object-storage, s3, encryption, ssec`                      |
-| [`check-stackit-ip.sh`](#check-stackit-ipsh)                                       | Check whether a given IP address belongs to STACKIT's public IP ranges.                                               | `stackit`, `jq`, `grepcidr`        | `networking, ip, iaas`                                      |
-| [`check-terraform-numbered-files.sh`](#check-terraform-numbered-filessh)           | Verify that all Terraform files in an example follow the 3-digit numeric prefix naming convention.                    | (none — used as a pre-commit hook) | `terraform, lint, ci`                                       |
-| [`create-kubeconfig-multiple-projects.sh`](#create-kubeconfig-multiple-projectssh) | Generate kubeconfig entries for every SKE cluster across one or more STACKIT projects.                                | `stackit`, `yq`                    | `ske, kubernetes, kubeconfig, multi-project`                |
-| [`delete-unused-volumes.sh`](#delete-unused-volumessh)                             | Delete all STACKIT volumes whose status is `AVAILABLE` (i.e. not attached).                                           | `stackit`, `yq`                    | `iaas, volume, compute`                                     |
-| [`list-project-resources.sh`](#list-project-resourcessh)                           | Render a Markdown inventory of resources (DNS, SKE, databases, storage, …) for one or more STACKIT projects.          | `stackit`, `jq`                    | `dns, ske, dbaas, object-storage, inventory, multi-project` |
-| [`ske-show-versions.sh`](#ske-show-versionssh)                                     | Print overview of SKE cluster Kubernetes versions and nodepool image versions, marking deprecated versions.           | `stackit` (>= 0.59.0), `jq`, `awk` | `ske, kubernetes, versions`                                 |
-| [`smctl.sh`](#smctlsh)                                                             | Unified CLI wrapper around HashiCorp Vault for the STACKIT Secret Manager (KV v2), think `kubectl` for secrets        | `vault`, `jq`                      | `secrets-manager, vault, secrets`                           |
-| [`vault-migrate.sh`](#vault-migratesh)                                             | Migrate secrets between two Vault instances using the KV v2 API (supports userpass and LDAP for source).              | `vault`, `jq`                      | `secrets-manager, vault, secrets, migration`                |
+| Script                                                                             | Purpose                                                                                                                                   | Required tools                                             | Tags                                                             |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`s3-ssec.sh`](#s3-ssec)                                                           | Upload and Download Files to a STACKIT S3 Bucket (Object Storage) and enable Server Side Encryption with Custom Keys.                     | `awscli`, `python3-awscrt`                                 | `object-storage, s3, encryption, ssec`                           |
+| [`check-stackit-ip.sh`](#check-stackit-ipsh)                                       | Check whether a given IP address belongs to STACKIT's public IP ranges.                                                                   | `stackit`, `jq`, `grepcidr`                                | `networking, ip, iaas`                                           |
+| [`check-terraform-numbered-files.sh`](#check-terraform-numbered-filessh)           | Verify that all Terraform files in an example follow the 3-digit numeric prefix naming convention.                                        | (none — used as a pre-commit hook)                         | `terraform, lint, ci`                                            |
+| [`create-kubeconfig-multiple-projects.sh`](#create-kubeconfig-multiple-projectssh) | Generate kubeconfig entries for every SKE cluster across one or more STACKIT projects.                                                    | `stackit`, `yq`                                            | `ske, kubernetes, kubeconfig, multi-project`                     |
+| [`delete-unused-volumes.sh`](#delete-unused-volumessh)                             | Delete all STACKIT volumes whose status is `AVAILABLE` (i.e. not attached).                                                               | `stackit`, `yq`                                            | `iaas, volume, compute`                                          |
+| [`list-project-resources.sh`](#list-project-resourcessh)                           | Render a Markdown inventory of resources (DNS, SKE, databases, storage, …) for one or more STACKIT projects.                              | `stackit`, `jq`                                            | `dns, ske, dbaas, object-storage, inventory, multi-project`      |
+| [`project-resource-graph.sh`](#project-resource-graphsh)                           | List the resources of a project, show which of them reference each other, and delete selected objects ordered by the references it found. | `stackit` (tested with 0.72.0), `jq`, `python3` (optional) | `inventory, references, delete, iaas, ske, dbaas, multi-project` |
+| [`ske-show-versions.sh`](#ske-show-versionssh)                                     | Print overview of SKE cluster Kubernetes versions and nodepool image versions, marking deprecated versions.                               | `stackit` (>= 0.59.0), `jq`, `awk`                         | `ske, kubernetes, versions`                                      |
+| [`smctl.sh`](#smctlsh)                                                             | Unified CLI wrapper around HashiCorp Vault for the STACKIT Secret Manager (KV v2), think `kubectl` for secrets                            | `vault`, `jq`                                              | `secrets-manager, vault, secrets`                                |
+| [`vault-migrate.sh`](#vault-migratesh)                                             | Migrate secrets between two Vault instances using the KV v2 API (supports userpass and LDAP for source).                                  | `vault`, `jq`                                              | `secrets-manager, vault, secrets, migration`                     |
 
 ---
 
@@ -270,6 +271,73 @@ Sample output (excerpt):
 N/A
 
 last update: Thu, 16-Apr-2026 14:42:11 CEST
+```
+
+---
+
+## `project-resource-graph.sh`
+
+Lists the resources of one or more STACKIT projects and shows which of them reference each other. The script runs the `list` command of every service in its built-in table (see `--list-services`) in parallel, collects all IDs, and then searches each object for strings that equal the ID of another object. Edges therefore do not depend on hard-wired field names, but they only exist where an API carries the relation as an ID inside the object.
+
+With `--delete` the script resolves selectors such as `server/web-1` against the collected inventory, orders the steps so that referencing objects go first, prints the plan with warnings, and asks for the project ID as confirmation before it calls the CLI. The services accept the requests asynchronously, so a second run shows the actual result. Every run that reaches the execution writes an evidence file `stackit-delete-<project>-<timestamp>.jsonl` into the current directory.
+
+The `image` kind is treated as a system catalog: images are queried so that servers can point at them, only referenced images are shown, and the script refuses to delete them. `kms-keyring` is listed but never deleted either.
+
+### Flags
+
+- `--key NAME|PATH|EMAIL` — service account key from `$STACKIT_KEY_DIR` (default `~/.stackit/keys`), activated in its own CLI profile; `--key ?` opens a menu. Without it the logged-in session is used.
+- `--profile NAME` — CLI profile for the key (default: `resource-graph`).
+- `--project-id ID` — project to inspect, may be repeated. Default: the project from the CLI configuration.
+- `--all-projects` — every project the identity is a member of.
+- `--region R` — default: the region from the CLI configuration.
+- `--services a,b,c` — query only these services; `--list-services` prints all of them.
+- `--delete KIND/NAME` — delete an object, may be repeated; `KIND/ID` works too. Needs exactly one project and a terminal. Deleting a `service-account` needs `python3` to read the script's own identity from the access token, or a `--key` file with an issuer email.
+- `--format text|mermaid|json` — output format (default: `text`).
+- `--dump-dir PATH` — write the raw CLI responses of every service into `PATH/<project-id>/`.
+- `-h, --help` — show usage.
+
+### Environment variables
+
+| Variable                         | Description                                                            |
+| -------------------------------- | ---------------------------------------------------------------------- |
+| `STACKIT_KEY_DIR`                | Directory with service account key files (default: `~/.stackit/keys`). |
+| `STACKIT_RESOURCE_GRAPH_PROFILE` | CLI profile used for an activated key (default: `resource-graph`).     |
+
+### Examples
+
+```bash
+# Inventory of the project from the CLI configuration
+./project-resource-graph.sh
+
+# Use a service account key and render a Mermaid graph of the compute layer
+./project-resource-graph.sh --key tftest-key --services server,nic,network,volume --format mermaid
+
+# Machine-readable inventory of all projects
+./project-resource-graph.sh --all-projects --format json > inventory.json
+
+# Delete a server and its data volume; the plan is shown and must be confirmed
+./project-resource-graph.sh --delete server/web-1 --delete volume/web-1-data
+```
+
+Sample output (excerpt):
+
+```
+Project Alpha (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx), region eu01
+-------------------------------------------------------------------
+  Service             Objects     out      in  Note
+  server                    2       5       1
+  volume                    2       1       1
+  network                   1       0       2
+  image                     2       0       2  of 3 in the catalog, only the referenced ones
+
+  References
+    server/web-1 [ACTIVE]
+      -> image/ubuntu-22                               imageId
+      -> nic/web-1-nic                                 nics.0.nicId
+      -> volume/web-1-data                             volumes.0
+
+  Without references
+    volume/orphan [AVAILABLE]
 ```
 
 ---
