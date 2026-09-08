@@ -54,3 +54,19 @@ output "demo_namespace" {
   description = "Kubernetes namespace where the demo workload is deployed."
   value       = kubernetes_namespace_v1.demo.metadata[0].name
 }
+
+output "valkey_host" {
+  description = "Host of the managed Key Value Store instance used as the JuiceFS metadata engine."
+  value       = stackit_valkey_credential.juicefs.host
+}
+
+output "valkey_port" {
+  description = "Port of the managed Key Value Store instance."
+  value       = stackit_valkey_credential.juicefs.port
+}
+
+output "valkey_uri" {
+  description = "Connection URI of the managed Key Value Store instance."
+  value       = stackit_valkey_credential.juicefs.uri
+  sensitive   = true
+}
