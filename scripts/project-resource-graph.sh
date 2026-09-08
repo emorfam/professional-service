@@ -571,17 +571,22 @@ def order($rest; $E):
     plan: [ $o[] as $k | ($plan[] | select(.key == $k)) ] }
 '
 
-# What deleting does to objects this script does not list at all. Not verified
-# against the API, hence "unclear" where it is.
+# What deleting does to objects this script does not list at all. The notes on
+# buckets and database instances follow the STACKIT documentation as of
+# 2026-09-07; the sources are listed in scripts/README.md under "What deletion
+# does to contents and backups".
 deletion_note() { # <kind>
   case "$1" in
     dns-zone)        printf "the zone's records go with it" ;;
     secrets-manager) printf "the instance's secrets go with it" ;;
-    object-storage)  printf 'unclear whether a bucket with content gets deleted' ;;
+    object-storage)  printf 'refused while the bucket holds objects; the CLI deletes no objects' ;;
     public-ip)       printf 'the address is gone, along with everything pointing at it from outside' ;;
     service-account) printf 'affects all projects; roles and server attachments are not visible here' ;;
-    postgresflex|mongodbflex|mariadb|redis|opensearch|rabbitmq|logme)
-                     printf 'unclear whether backups survive the instance' ;;
+    postgresflex)    printf 'final with CLI 0.72.0 (API v3 has no delayed deletion); backups are reachable only through the instance' ;;
+    mongodbflex)     printf 'final; backups are reachable only through the instance' ;;
+    opensearch|rabbitmq|logme)
+                     printf 'final; all data and all STACKIT-held backups go with it' ;;
+    mariadb|redis)   printf 'final; backups are documented only for the lifetime of the instance' ;;
     *) return 1 ;;
   esac
 }
