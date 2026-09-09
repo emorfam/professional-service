@@ -29,7 +29,6 @@ terraform {
 provider "stackit" {
   default_region           = var.stackit_region
   service_account_key_path = var.stackit_service_account_key_path
-  enable_beta_resources    = true
   # Routing tables are still an experimental provider feature. Without this the
   # stackit_routing_table resources refuse to plan.
   experiments = ["routing-tables"]

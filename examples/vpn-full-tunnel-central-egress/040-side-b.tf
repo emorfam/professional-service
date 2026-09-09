@@ -105,7 +105,7 @@ resource "stackit_volume" "b_egress" {
   availability_zone = var.machine_availability_zone
   size              = var.machine_disk_size
   performance_class = var.machine_disk_performance_class
-  source            = { type = "image", id = data.stackit_image_v2.ubuntu.image_id }
+  source            = { type = "image", id = var.image_id }
 }
 
 resource "stackit_server" "b_egress" {
