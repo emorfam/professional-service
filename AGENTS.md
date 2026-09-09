@@ -164,6 +164,8 @@ Fetch only the files relevant to the task. A typical example contains
   This example demonstrates how to use the **STACKIT Telemetry Router** to centralize observability data across multiple projects, folders, and even the entire organization
 - **`terraform-pg-backend-state-locking`** `[terraform, postgresql, state, backend, remote-state, locking]`  
   This repository demonstrates how to configure STACKIT PostgreSQL Flex as a Terraform backend to enable remote state storage and native state locking
+- **`vpn-full-tunnel-central-egress`** `[vpn, networking, ipsec, site-to-site, bgp, routing, egress, hub-and-spoke, iaas, ha, full-tunnel, central-egress]`  
+  This example deploys a workload in one [STACKIT Network Area](https://docs.stackit.cloud/products/network/connectivity-hybrid-multi-cloud/sna/) (SNA) that sends **all** of its traffic — including internet traffic — through the [STACKIT Managed VPN](https://docs.stackit.cloud/products/network/connectivity-hybrid-multi-cloud/vpn/) into a second SNA, where one central machine is the only way out to the internet. A jump host in the same spoke SNA deliberately keeps its own local breakout
 - **`vpn-stackit-azure`** `[vpn, networking, ipsec, site-to-site, azure, cross-cloud, ha, bgp]`  
   This example demonstrates how to establish a secure, Highly Available (HA) IPsec VPN connection between a STACKIT Network Area (SNA) and Microsoft Azure
 - **`vpn-stackit-gcp`** `[vpn, networking, ipsec, site-to-site, gcp, cross-cloud, ha, bgp]`  
