@@ -1,0 +1,23 @@
+# STACKIT organization the two network areas are created in.
+stackit_org_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Existing folder both projects are created under, or the organization ID to
+# create them directly under the organization. Terraform does not create it.
+stackit_parent_container_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# An existing STACKIT user. A non-existent address fails with
+# 409 Conflict "subject is not found".
+stackit_admin_email = "firstname.lastname@example.com"
+
+stackit_service_account_key_path = "./keys/stackit-sa.json"
+
+# Project names. Set them explicitly so the intent is visible.
+project_a_name = "vpn-spoke"
+project_b_name = "vpn-hub"
+
+# Only this source may reach the jump host and the egress machine over SSH.
+admin_cidr = "198.51.100.10/32"
+# or admin_cidr = "0.0.0.0/0"
+
+# Public half of your SSH key - never the private key.
+ssh_public_key = "ssh-ed25519 AAAA... you@example.com"
