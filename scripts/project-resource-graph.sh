@@ -122,8 +122,11 @@ Options:
       --profile NAME         CLI profile for the key. Default:
                              $STACKIT_RESOURCE_GRAPH_PROFILE or resource-graph.
       --project-id ID        Project, may be repeated. Without it the project
-                             from the CLI configuration.
-      --all-projects         All projects the identity is a member of.
+                             from the CLI configuration, which is read only
+                             when no --key is given.
+      --all-projects         Every project the identity reaches: its own
+                             memberships plus the projects under every
+                             organization it can read.
       --region R             Default: region from the CLI configuration.
       --services a,b,c       Query only these services.
       --list-services        Show queryable services and exit.
@@ -235,13 +238,20 @@ require_tools() {
 # The region must be read from the active profile before switching to another
 # profile; a profile created with --empty has none. Both values are optional: a
 # failure here must not end the script as long as --region and --project-id are set.
+#
+# The project is treated differently than the region: every subject uses the same
+# regions, but a project belongs to one subject. The project of the logged-in
+# session is therefore not read when --key selects another subject, which often
+# sits in another organization and gets 403 for that project.
 load_cli_defaults() {
   local cli_config
   cli_config="$(stackit config list -o json 2>/dev/null || true)"
   if [[ -z "$REGION" ]]; then
     REGION="$(printf '%s' "$cli_config" | jq -r '.region // empty' 2>/dev/null || true)"
   fi
-  DEFAULT_PROJECT="$(printf '%s' "$cli_config" | jq -r '.project_id // empty' 2>/dev/null || true)"
+  if [[ -z "$KEY_SELECTOR" ]]; then
+    DEFAULT_PROJECT="$(printf '%s' "$cli_config" | jq -r '.project_id // empty' 2>/dev/null || true)"
+  fi
 }
 
 create_workspace() {
@@ -356,21 +366,63 @@ resolve_identity() {
 }
 
 # --- Projects -----------------------------------------------------------------
+# Prints "<project-id>\x1f<name>" for one project list call. The CLI answers with
+# a bare array in some versions and with a paged object in others.
+project_rows() { # <cli words...>
+  stackit_cli "$@" -o json 2>/dev/null \
+    | jq -r '(if type=="array" then . else (.items // []) end)[]
+             | [(.projectId // ""), (.name // "")] | join("\u001f")'
+}
+
+# Prints the organization IDs the subject can read.
+organization_ids() {
+  stackit_cli organization list -o json 2>/dev/null \
+    | jq -r '(if type=="array" then . else (.items // []) end)[]
+             | .organizationId // empty'
+}
+
+# Prints "<project-id>\x1f<name>" for every project the subject reaches, each ID
+# once. Two sources are needed. "project list" without a filter returns the
+# projects the subject is a member of; a role on an organization creates no such
+# membership, so a service account with an organization role gets an empty list
+# there and its projects only appear under --parent-id. Projects inside a folder
+# are missing from the second source: the API returns the children of the
+# container that is asked for, and the CLI 0.72.0 has no command that lists
+# folders.
+# || true: one source that fails must not swallow the other.
+readable_projects() {
+  local org
+  {
+    project_rows project list || true
+    while read -r org; do
+      [[ -n "$org" ]] || continue
+      project_rows project list --parent-id "$org" || true
+    done < <(organization_ids)
+  } | awk -F $'\037' '$1 != "" && !seen[$1]++'
+}
+
+# Prints why no project was found. Without --key the CLI configuration is the
+# missing piece; with --key it is deliberately not read.
+no_project_message() {
+  if [[ -n "$KEY_SELECTOR" ]]; then
+    printf '%s' "no project. The project of the CLI configuration belongs to the logged-in session and is not used with --key. Set --project-id or use --all-projects."
+  else
+    printf '%s' "no project. Set --project-id, use --all-projects or run 'stackit config set project-id ...'."
+  fi
+}
+
 resolve_projects() {
   local id name
   : > "$WORK/project-names"
   if [[ $ALL_PROJECTS -eq 1 ]]; then
     while IFS=$'\037' read -r id name; do
-      [[ -n "${id:-}" ]] || continue
       PROJECTS+=("$id")
       printf '%s\037%s\n' "$id" "$name" >> "$WORK/project-names"
-    done < <(stackit_cli project list -o json 2>/dev/null \
-               | jq -r '(if type=="array" then . else (.items // []) end)[]
-                        | [(.projectId // ""), (.name // "")] | join("\u001f")')
+    done < <(readable_projects)
     [[ ${#PROJECTS[@]} -gt 0 ]] || die "no readable projects"
+    info "${#PROJECTS[@]} projects: memberships and the projects under every readable organization"
   elif [[ ${#PROJECTS[@]} -eq 0 ]]; then
-    [[ -n "$DEFAULT_PROJECT" ]] \
-      || die "no project. Set --project-id, use --all-projects or run 'stackit config set project-id ...'."
+    [[ -n "$DEFAULT_PROJECT" ]] || die "$(no_project_message)"
     PROJECTS+=("$DEFAULT_PROJECT")
   fi
 }

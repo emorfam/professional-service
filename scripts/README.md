@@ -295,12 +295,20 @@ The notes printed with the delete plan follow the STACKIT documentation as opene
 | `opensearch`, `rabbitmq`, `logme` | Deletion "includes deletion of all settings and configurations made for this instance, all data stored in the service (if any) and all corresponding backups in the STACKIT cloud".                                                                                                                                                                                                                                       | [OpenSearch](https://docs.stackit.cloud/products/databases/opensearch/how-tos/delete-an-opensearch-service/), [RabbitMQ](https://docs.stackit.cloud/products/messaging/rabbitmq/how-tos/create-and-manage-services/), [LogMe](https://docs.stackit.cloud/products/logging-and-monitoring/logme/how-tos/create-and-manage-logme-services/)                                                                                                                                                                                                          |
 | `mariadb`, `redis`                | Deletion "cannot be undone"; backups "are stored for 14 days". The documentation does not say whether backups outlive the instance.                                                                                                                                                                                                                                                                                       | [MariaDB instances](https://docs.stackit.cloud/products/databases/mariadb/how-tos/create-and-manage-instances/), [MariaDB architecture](https://docs.stackit.cloud/products/databases/mariadb/basics/architecture/), [Redis instances](https://docs.stackit.cloud/products/databases/redis/how-tos/create-and-manage-instances-for-redis/), [Redis architecture](https://docs.stackit.cloud/products/databases/redis/basics/architecture-of-redis/)                                                                                                |
 
+### Which projects a run covers
+
+The project belongs to the identity, so `--key` changes it. Without `--key` the script takes the project from the CLI configuration of the active profile. With `--key` it does not: the key is another subject, often in another organization, and it would get 403 for that project. Such a run needs `--project-id` or `--all-projects` and says so when it gets neither. The region is inherited in both cases, because every subject uses the same regions.
+
+`--all-projects` asks twice. `stackit project list` returns the projects the subject is a member of. A role on an organization creates no membership, so a service account that holds one gets an empty list there; its projects appear under `stackit project list --parent-id <organization>`, which the script calls for every organization of `stackit organization list`. The union of both, each project once, is what the run covers.
+
+One gap remains: the API returns the projects that are children of the container it is asked for ([`GET /v2/projects`](https://github.com/stackitcloud/stackit-api-specifications/blob/main/services/resource-manager/v0/resource-manager.json)), and the CLI 0.72.0 has no command that lists folders. A project inside a folder is therefore covered through the membership list, not through its organization.
+
 ### Flags
 
 - `--key NAME|PATH|EMAIL` — service account key from `$STACKIT_KEY_DIR` (default `~/.stackit/keys`), activated in its own CLI profile; `--key ?` opens a menu. Without it the logged-in session is used.
 - `--profile NAME` — CLI profile for the key (default: `resource-graph`).
-- `--project-id ID` — project to inspect, may be repeated. Default: the project from the CLI configuration.
-- `--all-projects` — every project the identity is a member of.
+- `--project-id ID` — project to inspect, may be repeated. Default: the project from the CLI configuration, which is read only when no `--key` is given.
+- `--all-projects` — every project the identity reaches: the projects it is a member of plus the projects under every organization it can read.
 - `--region R` — default: the region from the CLI configuration.
 - `--services a,b,c` — query only these services; `--list-services` prints all of them.
 - `--delete KIND/NAME` — delete an object, may be repeated; `KIND/ID` works too. Needs exactly one project and a terminal. Deleting a `service-account` needs `python3` to read the script's own identity from the access token, or a `--key` file with an issuer email.
