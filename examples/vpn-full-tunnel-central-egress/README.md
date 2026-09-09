@@ -4,7 +4,7 @@
 
 ## Overview
 
-This example deploys a workload in one [STACKIT Network Area](https://docs.stackit.cloud/products/network/connectivity-hybrid-multi-cloud/sna/)
+This example deploys a workload in one [STACKIT Network Area](https://docs.stackit.cloud/products/network/core-networking/network-area/)
 (SNA) that sends **all** of its traffic — including internet traffic — through
 the [STACKIT Managed VPN](https://docs.stackit.cloud/products/network/connectivity-hybrid-multi-cloud/vpn/)
 into a second SNA, where one central machine is the only way out to the
