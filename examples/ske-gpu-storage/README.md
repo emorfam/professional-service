@@ -190,7 +190,7 @@ JuiceFS can be configured in two data hydration modes depending on dataset size 
 
 **Remarks**
 
-- Note that only the machine type `n3.104d.g8` (NVIDIA H100 HGX) is equipped with NVMe storage. Machine types with NVIDIA H100 NVL (`n3.14d.g1`, `n3.28d.g2`, `n3.56d.g4`) do not have this option.
+- Note that all NVIDIA H100 machine types on STACKIT (`n3.14d.g1`, `n3.28d.g2`, `n3.56d.g4`, `n3.104d.g8`) are equipped with 1.5 TB of NVMe storage.
 - The current default speed for S3 Object Storage is approximately 5 Gbps (~0.64 GB/s). This can be be adjusted to up to 24 Gbps (~3 GB/s) better suit AI training workloads. Contact your Account Manager if important for your use case
 
 ### JuiceFS integration into SKE
