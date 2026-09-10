@@ -116,6 +116,10 @@ Fetch only the files relevant to the task. A typical example contains
   This repository provides an automated setup for **Authentik** on STACKIT SKE, pre-configured as an Identity Provider (IdP) for STACKIT with both **OIDC** and **SCIM** support
 - **`object-storage-write-only-access`** `[object-storage, s3, access-control, secrets-manager, object-lock, iam]`  
   Demonstrates how to create a STACKIT Object Storage bucket with Object Lock enabled, configure write-only access credentials, and store all credentials securely in STACKIT Secrets Manager using the HashiCorp Vault provider
+- **`opa-policy-reactive-agent`** `[opa-policy-reactive-agent, iaas, observability, iam, opa, rego, compliance, security]`  
+  This example demonstrates how to deploy an infrastructure-as-code (IaC) **Reactive Policy Agent** on **STACKIT** to enforce organizational governance controls equivalent to **AWS Service Control Policies (SCPs)**
+- **`opa-policy-terraform-plan-validation`** `[opa-policy-terraform-plan-validation, terraform, governance, compliance, ci-cd, shift-left, opa, rego]`  
+  This example demonstrates how to implement **Preventive IaC Governance ("Shift-Left")** by evaluating **Open Policy Agent (OPA)** declarative Rego policies against **STACKIT Terraform plan JSON output** (`tfplan.json`) before infrastructure is applied in CI/CD pipelines
 - **`opnsense-hub-and-spoke`** `[vpn, opnsense, networking, hub-and-spoke, firewall, routing]`  
   A reference implementation of a **hub-and-spoke network topology** on [STACKIT](https://www.stackit.de/), provisioned with Terraform
 - **`s3-aws-terraform-provider`** `[s3, object-storage, terraform, aws-provider]`  

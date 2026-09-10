@@ -1,0 +1,14 @@
+{
+  "active_policies": [
+    "SCP-01-NO-PUBLIC-IPS",
+    "SCP-02-ALLOWED-FLAVORS",
+    "SCP-03-MANDATORY-TAGS",
+    "SCP-04-VOLUME-ENCRYPTION",
+    "SCP-05-IAM-ADMIN-GUARDRAIL"
+  ],
+  "allowed_machine_types": ["g2i.1", "g2i.2", "c2i.2", "c2i.4"],
+  "enforcement_mode": "remediate",
+  "mandatory_tags": ["environment", "owner", "cost-center"],
+  "project_id": "8d8bd3a2-286c-4bdc-b539-1fa88339488d",
+  "whitelisted_admin_subjects": ["policies-sa-area6w-i3yx73i8@sa.stackit.cloud"]
+}

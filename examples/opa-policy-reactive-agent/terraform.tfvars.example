@@ -1,0 +1,20 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# cp terraform.tfvars.example terraform.tfvars
+
+stackit_project_id               = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+stackit_service_account_key_path = "~/.stackit/sa-key.json"
+ssh_public_key_path              = "~/.ssh/id_rsa.pub"
+stackit_region                   = "eu01"
+availability_zone                = "eu01-1"
+
+# Enforcement mode: 'audit' (alerts only) or 'remediate' (automatically enforces SCP guardrails)
+enforcement_mode                 = "remediate"
+
+# Approved machine types allowed under SCP-02
+allowed_machine_types            = ["g2i.1", "g2i.2", "c2i.2", "c2i.4"]
+
+# Mandatory labels required on all STACKIT resources under SCP-03
+mandatory_tags                   = ["environment", "owner", "cost-center"]
+
+# Provision example compliant and non-compliant workloads for policy validation
+enable_demo_workloads            = true

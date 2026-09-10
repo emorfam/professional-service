@@ -1,0 +1,208 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - python3
+  - python3-pip
+  - jq
+  - curl
+  - ca-certificates
+  - unzip
+
+write_files:
+  - path: /etc/stackit-policy-engine/config.json
+    owner: root:root
+    permissions: '0600'
+    content: |
+      {
+        "project_id": "${project_id}",
+        "enforcement_mode": "${enforcement_mode}",
+        "allowed_machine_types": ${allowed_machine_types_json},
+        "mandatory_tags": ${mandatory_tags_json},
+        "whitelisted_admin_subjects": ${whitelisted_admin_subjects_json},
+        "service_account_key_path": "/etc/stackit-policy-engine/sa-key.json"
+      }
+
+  - path: /etc/stackit-policy-engine/sa-key.json
+    owner: root:root
+    permissions: '0600'
+    content: |
+      ${indent(6, sa_key_json)}
+
+  - path: /tmp/policy_runner.gz.b64
+    owner: root:root
+    permissions: '0644'
+    content: ${policy_runner_b64gzip}
+
+  - path: /etc/stackit-policy-engine/policies/scp_no_public_ips.rego.b64
+    owner: root:root
+    permissions: '0644'
+    content: ${policy_no_public_ips_b64}
+
+  - path: /etc/stackit-policy-engine/policies/scp_allowed_flavors.rego.b64
+    owner: root:root
+    permissions: '0644'
+    content: ${policy_allowed_flavors_b64}
+
+  - path: /etc/stackit-policy-engine/policies/scp_mandatory_tags.rego.b64
+    owner: root:root
+    permissions: '0644'
+    content: ${policy_mandatory_tags_b64}
+
+  - path: /etc/stackit-policy-engine/policies/scp_volume_encryption.rego.b64
+    owner: root:root
+    permissions: '0644'
+    content: ${policy_volume_encryption_b64}
+
+  - path: /etc/stackit-policy-engine/policies/scp_iam_guardrails.rego.b64
+    owner: root:root
+    permissions: '0644'
+    content: ${policy_iam_guardrails_b64}
+
+  - path: /etc/promtail/config.yaml
+    owner: root:root
+    permissions: '0644'
+    content: |
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+
+      positions:
+        filename: /var/log/promtail-positions.yaml
+
+      clients:
+        - url: "${obs_logs_push_url}"
+          tenant_id: "${obs_instance_id}"
+          basic_auth:
+            username: "${obs_username}"
+            password: "${obs_password}"
+
+      scrape_configs:
+        - job_name: systemd-journal
+          journal:
+            max_age: 12h
+            labels:
+              job: systemd-journal
+              host: policy-engine-host
+          relabel_configs:
+            - source_labels: ['__journal__systemd_unit']
+              target_label: 'unit'
+
+        - job_name: stackit-policy-engine-audit
+          static_configs:
+            - targets:
+                - localhost
+              labels:
+                job: stackit-policy-engine
+                host: policy-engine-host
+                __path__: /var/log/stackit-policy-engine/*.log
+          pipeline_stages:
+            - json:
+                expressions:
+                  event_type: event_type
+            - labels:
+                event_type:
+
+  - path: /etc/default/prometheus-node-exporter
+    owner: root:root
+    permissions: '0644'
+    content: |
+      ARGS="--collector.textfile.directory=/var/lib/prometheus/node-exporter"
+
+  - path: /etc/prometheus/prometheus.yml
+    owner: root:root
+    permissions: '0644'
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+
+      scrape_configs:
+        - job_name: 'node_exporter'
+          static_configs:
+            - targets: ['localhost:9100']
+
+      remote_write:
+        - url: "${obs_metrics_push_url}"
+          basic_auth:
+            username: "${obs_username}"
+            password: "${obs_password}"
+          headers:
+            X-Scope-OrgID: "${obs_instance_id}"
+
+  - path: /etc/systemd/system/promtail.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Promtail log shipper for Loki
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=root
+      ExecStart=/usr/local/bin/promtail -config.file=/etc/promtail/config.yaml
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/stackit-policy-engine.service
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=STACKIT Reactive Policy Engine Evaluation Run
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      Environment="HOME=/root"
+      Environment="XDG_CONFIG_HOME=/root/.config"
+      ExecStart=/usr/local/bin/stackit-policy-runner
+      StandardOutput=journal
+      StandardError=journal
+
+  - path: /etc/systemd/system/stackit-policy-engine.timer
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Run STACKIT Reactive Policy Engine every 60 seconds
+
+      [Timer]
+      OnBootSec=30s
+      OnUnitActiveSec=60s
+      Unit=stackit-policy-engine.service
+
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  # Unpack policy runner script and rego files
+  - mkdir -p /etc/stackit-policy-engine/policies
+  - base64 -d /tmp/policy_runner.gz.b64 | gzip -d > /usr/local/bin/stackit-policy-runner && chmod +x /usr/local/bin/stackit-policy-runner
+  - for f in /etc/stackit-policy-engine/policies/*.rego.b64; do base64 -d "$f" > "$${f%.b64}" && rm -f "$f"; done
+  # Create audit log file directory and metrics directory for node_exporter textfile collector
+  - mkdir -p /var/log/stackit-policy-engine && touch /var/log/stackit-policy-engine/audit.log
+  - mkdir -p /var/lib/prometheus/node-exporter && chmod 777 /var/lib/prometheus/node-exporter
+  # Ensure APT packages are installed, including Prometheus metrics exporters and Python SDK
+  - apt-get update -y
+  - apt-get install -y python3-pip python3-setuptools prometheus prometheus-node-exporter unzip
+  - pip3 install --no-cache-dir stackit-iaas stackit-authorization stackit-core --break-system-packages || pip3 install --no-cache-dir stackit-iaas stackit-authorization stackit-core
+  # Install Promtail binary
+  - curl -sL https://github.com/grafana/loki/releases/download/v3.0.0/promtail-linux-amd64.zip -o /tmp/promtail.zip
+  - unzip -o /tmp/promtail.zip -d /tmp/
+  - mv -f /tmp/promtail-linux-amd64 /usr/local/bin/promtail
+  - chmod +x /usr/local/bin/promtail
+  # Install OPA (Open Policy Agent) binary
+  - curl -L -o /usr/local/bin/opa https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static
+  - chmod +x /usr/local/bin/opa
+  # Enable and start services
+  - systemctl daemon-reload
+  - systemctl restart prometheus prometheus-node-exporter || true
+  - systemctl enable --now promtail || true
+  - systemctl enable --now stackit-policy-engine.timer
